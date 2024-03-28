@@ -1,0 +1,25 @@
+version: "3.9"
+
+name: greenlight
+
+services:
+  db:
+    image: postgres:13.1-alpine
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${DB_DATABASE?}
+      POSTGRES_USER: ${DB_ROOT_USER?}
+      POSTGRES_PASSWORD: ${DB_ROOT_PASSWORD?}
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - "8080:8080"
+
+volumes:
+  pg-data:
