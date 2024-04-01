@@ -3,6 +3,17 @@ version: "3.9"
 name: greenlight
 
 services:
+  mailpit:
+    image: axllent/mailpit
+    container_name: mailpit
+    restart: always
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    environment:
+      MP_MAX_MESSAGES: 5000
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
   db:
     image: postgres:13.1-alpine
     volumes:
