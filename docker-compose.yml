@@ -16,6 +16,7 @@ services:
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
   db:
     image: postgres:13.1-alpine
+    container_name: db
     volumes:
       - pg-data:/var/lib/postgresql/data
     ports:
@@ -28,6 +29,7 @@ services:
 
   adminer:
     image: adminer
+    container_name: adminer
     restart: always
     ports:
       - "8080:8080"
