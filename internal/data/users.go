@@ -15,6 +15,8 @@ var (
 	ErrDuplicateEmail = errors.New("duplicate email")
 )
 
+var AnonymousUser = new(User)
+
 type User struct {
 	ID        int64     `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
@@ -23,6 +25,11 @@ type User struct {
 	Password  password  `json:"-"`
 	Activated bool      `json:"activated"`
 	Version   int       `json:"-"`
+}
+
+// Check if a User instance is the AnonymousUser.
+func (u *User) IsAnonymous() bool {
+	return u == AnonymousUser
 }
 
 type password struct {
@@ -55,11 +62,13 @@ func (p *password) Matches(plainTextPassword string) (bool, error) {
 	return true, nil
 }
 
+// ValidateEmail checks if provided email is valid and not empty
 func ValidateEmail(v *validator.Validator, email string) {
 	v.Check(email != "", "email", "email must be provided")
 	v.Check(validator.IsValidEmail(email), "email", "must be a valid email address")
 }
 
+// ValidatePasswordPlaintext checks if password is provided and in range of 8 and 72 bytes long
 func ValidatePasswordPlaintext(v *validator.Validator, password string) {
 	v.Check(password != "", "password", "must be provided")
 	v.Check(len(password) >= 8, "password", "must be at least 8 bytes long")

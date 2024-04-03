@@ -88,7 +88,7 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 
 	v := validator.New()
 
-	if data.ValidateTokenPlaintext(v, input.TokenPlainText); err != nil {
+	if data.ValidateTokenPlaintext(v, input.TokenPlainText); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
