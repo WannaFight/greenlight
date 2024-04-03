@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"time"
@@ -148,8 +149,8 @@ func (m UserModel) Update(user *User) error {
 		user.Email,
 		user.Password.hash,
 		user.Activated,
-		user.Version,
 		user.ID,
+		user.Version,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -168,4 +169,51 @@ func (m UserModel) Update(user *User) error {
 	}
 
 	return nil
+}
+
+func (m UserModel) GetForToken(tokenScope string, tokenPlaintext string) (*User, error) {
+	// Calculate teh SHA-256 hash of the plaintext token provided by the client.
+	tokenHash := sha256.Sum256([]byte(tokenPlaintext))
+	query := `
+		SELECT
+			users.id,
+			users.created_at,
+			users.name,
+			users.email,
+			users.password_hash,
+			users.activated,
+			users.version
+		FROM users
+		INNER JOIN tokens
+		ON users.id = tokens.user_id
+		WHERE tokens.hash = $1  --<-- This is vulnerable to a timing attack
+			AND tokens.scope = $2
+			AND tokens.expiry > $3`
+	args := []any{tokenHash[:], tokenScope, time.Now()}
+	var user User
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	// Execute the query, scanning the return values into a User struct.
+	// ``tokens.hash`` is a primary key – so exactly one query will be returned.
+	err := m.DB.QueryRowContext(ctx, query, args...).Scan(
+		&user.ID,
+		&user.CreatedAt,
+		&user.Name,
+		&user.Email,
+		&user.Password.hash,
+		&user.Activated,
+		&user.Version,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+
+	return &user, nil
 }
