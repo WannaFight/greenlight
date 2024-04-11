@@ -2,9 +2,11 @@ package main
 
 import (
 	"errors"
+	"expvar"
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +15,48 @@ import (
 	"github.com/WannaFight/greenlight/internal/validator"
 	"golang.org/x/time/rate"
 )
+
+// The metricsResponseWriter wraps an existing http.ResponseWriter and also
+// contains a field for recording the response status code, and a boolean flag to
+// indicate whether the response headers have already been written.
+type metricsResponseWriter struct {
+	wrapped       http.ResponseWriter
+	statusCode    int
+	headerWritten bool
+}
+
+// The Header() method is a simple 'pass through' to the Header() method of the
+// wrapped http.ResponseWriter.
+func (mv *metricsResponseWriter) Header() http.Header {
+	return mv.wrapped.Header()
+}
+
+// The WriteHeader() method does a 'pass through' to the WriteHeader()
+// method of the wrapped http.ResponseWriter. But also record the response
+// status code (if it hasn't already been recorded).
+func (mv *metricsResponseWriter) WriteHeader(statusCode int) {
+	mv.wrapped.WriteHeader(statusCode)
+
+	if !mv.headerWritten {
+		mv.statusCode = statusCode
+		mv.headerWritten = true
+	}
+}
+
+// The Write() method does a 'pass through' to the Write() method of the wrapped http.ResponseWriter.
+// If there wasn't a separate successful call to WriteHeader() use the default response status 200 OK.
+func (mv *metricsResponseWriter) Write(b []byte) (int, error) {
+	if !mv.headerWritten {
+		mv.statusCode = http.StatusOK
+		mv.headerWritten = true
+	}
+	return mv.wrapped.Write(b)
+}
+
+// Unwrap() method which returns the existing wrapped http.ResponseWriter.
+func (mv *metricsResponseWriter) Unwrap() http.ResponseWriter {
+	return mv.wrapped
+}
 
 func (app *application) recoverPanic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -196,5 +240,29 @@ func (app *application) enableCORS(next http.Handler) http.Handler {
 			}
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+func (app *application) metrics(next http.Handler) http.Handler {
+	var (
+		totalRequestsReceived           = expvar.NewInt("total_requests_received")
+		totalResponsesSent              = expvar.NewInt("total_responses_sent")
+		totalProcessingTimeMicroseconds = expvar.NewInt("total_processing_time_μs")
+		totalActiveRequests             = expvar.NewInt("total_active_requests")
+		totalResponsesSentByStatus      = expvar.NewMap("total_responses_sent_by_status")
+	)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		totalRequestsReceived.Add(1)
+
+		mw := &metricsResponseWriter{wrapped: w}
+
+		next.ServeHTTP(mw, r)
+
+		totalResponsesSent.Add(1)
+		totalResponsesSentByStatus.Add(strconv.Itoa(mw.statusCode), 1)
+		totalActiveRequests.Set(totalRequestsReceived.Value() - totalResponsesSent.Value())
+		totalProcessingTimeMicroseconds.Add(time.Since(start).Microseconds())
 	})
 }
