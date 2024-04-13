@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"expvar"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"runtime"
@@ -16,14 +17,18 @@ import (
 	"github.com/WannaFight/greenlight/internal/data"
 	"github.com/WannaFight/greenlight/internal/jsonlog"
 	"github.com/WannaFight/greenlight/internal/mailer"
+	"github.com/WannaFight/greenlight/internal/vcs"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
 const (
-	version = "1.0.0"
 	envFile = ".env"
+)
+
+var (
+	version = vcs.Version()
 )
 
 type config struct {
@@ -100,7 +105,14 @@ func main() {
 		return nil
 	})
 
+	displayVersion := flag.Bool("version", false, "Display version and exit")
+
 	flag.Parse()
+
+	if *displayVersion {
+		fmt.Printf("Version:\t%s\n", version)
+		os.Exit(0)
+	}
 
 	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
 
