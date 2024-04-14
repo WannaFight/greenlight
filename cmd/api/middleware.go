@@ -136,6 +136,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 
 		headerParts := strings.Split(authorizationHeader, " ")
 		if len(headerParts) != 2 || headerParts[0] != "Bearer" {
+			app.logger.PrintInfo("here is not valid", nil)
 			app.invalidAuthenticationTokenResponse(w, r)
 			return
 		}
@@ -144,6 +145,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 		v := validator.New()
 
 		if data.ValidateTokenPlaintext(v, token); !v.Valid() {
+			app.logger.PrintInfo("here is not valid", map[string]string{"token": token})
 			app.invalidAuthenticationTokenResponse(w, r)
 			return
 		}

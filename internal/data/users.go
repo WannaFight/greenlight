@@ -116,6 +116,8 @@ func (m UserModel) Insert(user *User) error {
 	return nil
 }
 
+// GetByEmail() method return matching User from db.
+// May return ErrRecordNotFound if no matching user was found or any other error
 func (m UserModel) GetByEmail(email string) (*User, error) {
 	user := new(User)
 	query := `
@@ -180,6 +182,8 @@ func (m UserModel) Update(user *User) error {
 	return nil
 }
 
+// GetForToken() method return user for specified scoped token.
+// May return ErrRecordNotFound if token is not valid or any other err
 func (m UserModel) GetForToken(tokenScope string, tokenPlaintext string) (*User, error) {
 	// Calculate teh SHA-256 hash of the plaintext token provided by the client.
 	tokenHash := sha256.Sum256([]byte(tokenPlaintext))
